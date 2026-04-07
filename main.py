@@ -9,7 +9,7 @@ conn = sqlite3.connect('data.sqlite')
 pd.read_sql("""SELECT * FROM sqlite_master""", conn)
 
 # STEP 1
-df_boston = pd.read_sql("""SELECT e.firstName, e.lastName FROM employees e INNER JOIN offices o ON e.officeCode = o.officeCode WHERE o.city = 'Boston' ORDER BY e.firstName""", conn)
+df_boston = pd.read_sql("""SELECT e.firstName, e.lastName, e.jobTitle FROM employees e INNER JOIN offices o ON e.officeCode = o.officeCode WHERE o.city = 'Boston' ORDER BY e.firstName""", conn)
 
 # STEP 2
 df_zero_emp = pd.read_sql("""SELECT o.* FROM offices o LEFT JOIN employees e ON o.officeCode = e.officeCode GROUP BY o.officeCode HAVING COUNT(e.employeeNumber) = 0""", conn)
@@ -35,7 +35,23 @@ df_total_customers = pd.read_sql("""SELECT p.productName, p.productCode, COUNT(D
 # STEP 9
 df_customers = pd.read_sql("""SELECT o.officeCode, o.city, COUNT(c.customerNumber) as n_customers FROM offices o LEFT JOIN employees e ON o.officeCode = e.officeCode LEFT JOIN customers c ON e.employeeNumber = c.salesRepEmployeeNumber GROUP BY o.officeCode""", conn)
 
-# STEP 10
-WITH low_products AS (SELECT od.productCode FROM orderdetails od INNER JOIN orders o2 ON od.orderNumber = o2.orderNumber INNER JOIN customers c ON o2.customerNumber = c.customerNumber GROUP BY od.productCode HAVING COUNT(DISTINCT c.customerNumber) < 20)
+df_under_20 = pd.read_sql("""
+WITH low_products AS (
+  SELECT od.productCode 
+  FROM orderdetails od 
+  INNER JOIN orders o ON od.orderNumber = o.orderNumber 
+  INNER JOIN customers c ON o.customerNumber = c.customerNumber 
+  GROUP BY od.productCode 
+  HAVING COUNT(DISTINCT c.customerNumber) < 20
+)
+SELECT DISTINCT e.employeeNumber, e.firstName, e.lastName, o.city, e.officeCode 
+FROM employees e 
+INNER JOIN offices o ON e.officeCode = o.officeCode 
+INNER JOIN customers c2 ON e.employeeNumber = c2.salesRepEmployeeNumber 
+INNER JOIN orders o2 ON c2.customerNumber = o2.customerNumber 
+INNER JOIN orderdetails od2 ON o2.orderNumber = od2.orderNumber 
+INNER JOIN low_products lp ON od2.productCode = lp.productCode 
+ORDER BY e.firstName
+""", conn)
 
 conn.close()
